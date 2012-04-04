@@ -1,8 +1,9 @@
 #ifndef QLESS_QUEUE_H
 #define QLESS_QUEUE_H
 
-#include "qless.h"
 #include "job.h"
+#include "util.h"
+#include "client.h"
 
 namespace qless {
 	class queue {

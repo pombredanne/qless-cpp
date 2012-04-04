@@ -1,22 +1,24 @@
 #ifndef QLESS_JOB_H
 #define QLESS_JOB_H
 
-#include "qless.h"
+#include <rapidjson/document.h>
+
+#include "util.h"
 
 namespace qless {
 	/* The history class describes when certain events happen to a
 	 * job. For instance, when it was put in a queue, when it was
 	 * popped, failed, completed, etc. */
-	class history {
+	class _history {
 		public:
-			history(const std::string& queue,
+			_history(const std::string& queue,
 				const std::string& worker="",
 				unsigned int put=0,
 				unsigned int popped=0,
 				unsigned int done=0,
 				unsigned int failed=0): q(queue), worker(worker), put(put), popped(popped), done(done), failed(failed) {};
-			history(const history& h): q(h.q), worker(h.worker), put(h.put), popped(h.popped), done(h.done), failed(h.failed) {};
-			~history() {};
+			_history(const _history& h): q(h.q), worker(h.worker), put(h.put), popped(h.popped), done(h.done), failed(h.failed) {};
+			~_history() {};
 			
 			const std::string q;
 			const std::string worker;
@@ -25,7 +27,7 @@ namespace qless {
 			const unsigned int done;
 			const unsigned int failed;
 		private:
-			const history& operator=(const history& other);
+			const _history& operator=(const _history& other);
 	};
 	
 	/* The job represents a unit of work. It has certain pieces of
@@ -34,77 +36,38 @@ namespace qless {
 	 * has other attributes that are set by the system. */
 	class job {
 		public:
-			job(const std::string& data,
-				unsigned int priority=0,
-				const std::vector<std::string>& tags=std::vector<std::string>(),
-				unsigned int delay=0,
-				unsigned int retries=3): priority(priority), retries(retries), delay(delay), data(data), tags(tags) {};
-			job(const job& j): priority(j.priority), retries(j.retries), delay(j.delay), data(j.data), tags(j.tags) {};
-			const job& operator=(const job& j) {
-				priority = j.priority;
-				retries  = j.retries;
-				delay    = j.delay;
-				data     = j.data;
-				tags     = j.tags;
-				return *this;
-			}
+			job(unsigned int priority,
+				unsigned int retries,
+				unsigned int remaining,
+				unsigned int expires,
+				const std::string& id,
+				const std::string& state,
+				const std::string& queue,
+				const std::string& worker,
+				const std::vector<std::string>& tags,
+				const std::vector<_history>& history,
+				rapidjson::Document data): priority(priority), retries(retries), remaining(remaining), expires(expires), id(id), state(state), queue(queue), worker(worker), tags(tags), history(history), data(data) {};
+			job(const job& j): priority(j.priority), retries(j.retries), remaining(j.remaining), expires(j.expires), id(j.id), state(j.state), queue(j.queue), worker(j.worker), tags(j.tags), history(j.history), data(j.data) {}
 			~job() {};
 			
-			unsigned int priority;
-			unsigned int retries;
-			unsigned int delay;
-			std::string data;
-			std::vector<std::string> tags;
+			/* This is a helper method to parse out a JSON blob response and 
+			 * return the corresponding job object */
+			static job parse(const std::string& j);
 			
-			// {
-			//     # This is the same id as identifies it in the key. It should be
-			//     # a hex value of a uuid
-			//     'id'        : 'deadbeef...',
-			// 
-			//     # This is the priority of the job -- lower means more priority.
-			//     # The default is 0
-			//     'priority'  : 0,
-			// 
-			//     # This is the user data associated with the job. (JSON blob)
-			//     'data'      : '{"hello": "how are you"}',
-			// 
-			//     # A JSON array of tags associated with this job
-			//     'tags'      : '["testing", "experimental"]',
-			// 
-			//     # The worker ID of the worker that owns it. Currently the worker
-			//     # id is <hostname>-<pid>
-			//     'worker'    : 'ec2-...-4925',
-			// 
-			//     # This is the time when it must next check in
-			//     'expires'   : 1352375209,
-			// 
-			//     # The current state of the job: 'waiting', 'pending', 'complete'
-			//     'state'     : 'waiting',
-			// 
-			//     # The queue that it's associated with. 'null' if complete
-			//     'queue'     : 'example',
-			// 
-			//     # The maximum number of retries this job is allowed per queue
-			//     'retries'   : 3,
-			//     # The number of retries remaining
-			//     'remaining' : 3,
-			// 
-			//     # A list of all the stages that this node has gone through, and
-			//     # when it was put in that queue, given to a worker, which worker,
-			//     # and when it was completed. (JSON blob)
-			//     'history'   : [
-			//         {
-			//             'q'     : 'test1',
-			//             'put'   : 1352075209,
-			//             'popped': 1352075300,
-			//             'done'  : 1352076000,
-			//             'worker': 'some-hostname-pid'
-			//         }, {
-			//             ...
-			//         }
-			//     ]
-			// }
+			const unsigned int priority;         // The job's priority
+			const unsigned int retries;          // The number of retries it gets per queue
+			const unsigned int remaining;        // The number of retries remaining
+			const unsigned int expires;          // The time when the lock expires (heartbeat-by time)
+			const std::string id;                // The job's id
+			const std::string state;             // The job's state
+			#warning "Consider using an enum for the state"
+			const std::string queue;             // The queue the job's associated with
+			const std::string worker;            // The worker handling the job
+			std::vector<std::string> tags;       // The tags this job has
+			const std::vector<_history> history; // A history of what's happened to this job
+			rapidjson::Document data;            // The JSON data associated with the job
 		private:
+			const job& operator=(const job& j);
 	};
 }
 
